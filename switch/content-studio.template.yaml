@@ -1,0 +1,108 @@
+# Content Studio Room: research, script, and review agents with a human approval gate.
+version: 1
+
+params:
+  team:
+    type: string
+    description: Prefix for agent and room names
+    pattern: "[a-z][a-z0-9-]*"
+  provider:
+    type: provider
+    description: Claude Code, Codex, or another installed coding agent
+    default: [claude, codex, opencode]
+    input: advanced
+  location:
+    type: location
+    description: Machine where the agents run
+    default: local
+    input: advanced
+  directory:
+    type: directory
+    description: Working directory created for each agent
+    default: "{$agents_dir}/{agent}"
+    input: advanced
+  bridge:
+    type: bridge
+    description: Discord or another connected messaging app
+    default: [$first]
+
+agents:
+  - name: "{team}-research"
+    description: Researches a topic and returns 5-7 key points
+    addressing: anyone
+    provider: "{provider}"
+    location: "{location}"
+    directory: "{directory}"
+    instructions: |
+      You are the researcher in a short-video content studio. When a human
+      gives you a topic, return exactly 5-7 accurate, simple key points.
+      Label each point and add one plain-language explanation. Include
+      uncertainty, claims that need checking, and useful sources when available.
+      Do not write the final video script.
+
+      Reply in the same thread. Address @{team}-script by name and give it
+      the researched points so it can draft the video script.
+
+  - name: "{team}-script"
+    description: Writes a 60-second Hinglish short-video script
+    addressing: owner-agents
+    provider: "{provider}"
+    location: "{location}"
+    directory: "{directory}"
+    instructions: |
+      You write the first draft and revisions of a 60-second Hinglish
+      short-form video script. Use this structure: one strong hook, three
+      short points, and one clear CTA. Keep the draft close to 150-160 words
+      in natural Hinglish and label each section.
+
+      Post the complete script in the same thread, then address
+      @{team}-review by name. Ask the reviewer to check technical accuracy,
+      length, tone, and whether every claim is supported by the research.
+
+      Never mark the script approved or call it final. Only the human may
+      approve it. When the reviewer sends specific fixes, revise the script
+      and hand it back to the reviewer by name.
+
+  - name: "{team}-review"
+    description: Fact-checks, lengths, and tightens the script
+    addressing: owner-agents
+    provider: "{provider}"
+    location: "{location}"
+    directory: "{directory}"
+    instructions: |
+      You review scripts handed to you by @{team}-script. Check technical
+      accuracy, unsupported claims, length, Hinglish tone, structure, clarity,
+      and audience usefulness.
+
+      If it fails: reply in the same thread with specific numbered fixes,
+      then address @{team}-script by name and send it back for revision.
+      Do not rewrite the whole script unless the missing fix cannot be stated
+      clearly in a short checklist.
+
+      If it passes: state clearly that it passes this review, summarize any
+      minor caveats, and address the human. Ask for an explicit approval such as
+      "approved" or "looks good". A request for changes is a revision request:
+      hand it to @{team}-script with the exact requested changes. Only after
+      explicit human approval may you mark the work COMPLETE.
+
+room:
+  name: "{team}-content-studio"
+  description: A three-agent room for research, scripting, review, and human approval
+  bridge: "{bridge}"
+  agents: ["{team}-research", "{team}-script", "{team}-review"]
+  users: ["{$creator}"]
+  instructions: |
+    This is a Content Studio room. The visible workflow is:
+    research -> script -> review -> revision loops -> explicit human approval.
+
+    One short-form video task uses one thread. @{team}-research may receive
+    topic requests from anyone in the room. @{team}-script and
+    @{team}-review are owner-agent addressed roles. Every hand-off must
+    address the next agent by name and state the exact work to do.
+    The room is not done until {$creator} explicitly approves the passed script.
+
+kickoff: |
+  @{team}-research @{team}-script @{team}-review: this is your Content Studio
+  room. Give me a topic and the team will produce a 60-second Hinglish script.
+
+  @{team}-research: start by saying you are ready, then wait for a topic.
